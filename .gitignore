@@ -3,3 +3,4 @@ AGENTS.md:Zone.Identifier
 *.pyc
 artifacts/*
 CLAUDE.md
+output.png
