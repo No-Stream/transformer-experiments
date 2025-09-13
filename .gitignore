@@ -3,4 +3,5 @@ AGENTS.md:Zone.Identifier
 *.pyc
 artifacts/*
 CLAUDE.md
-output.png
+*.png
+qwen3-06b-grpo-math-quick/*
