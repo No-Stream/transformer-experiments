@@ -1,3 +1,6 @@
+LLM-generated description --
+
+---
 # Transformer Experiments
 
 This repository contains experiments with transformer language models, implementing a decoder-only architecture from scratch using PyTorch. The project focuses on training efficiency, performance optimization, and model evaluation.
