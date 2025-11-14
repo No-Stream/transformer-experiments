@@ -1,4 +1,4 @@
-LLM-generated description --
+LLM-generated description; original version coded by hand but improvements have used LLMs --
 
 ---
 # Transformer Experiments
