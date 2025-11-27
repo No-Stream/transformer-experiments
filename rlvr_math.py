@@ -86,10 +86,10 @@ def gen_synthetic_math(
 def gen_ltr_arithmetic(
     n: int = 500,
     seed: int = 0,
-    min_steps: int = 4,
-    max_steps: int = 7,
-    add_sub_range: int = 9999,
-    mul_range: int = 50,
+    min_steps: int = 2,
+    max_steps: int = 3,
+    add_sub_range: int = 999,
+    mul_range: int = 20,
 ) -> List[Tuple[str, int]]:
     rng = random.Random(seed)
     ops = ["+", "-", "*"]
@@ -296,11 +296,13 @@ def measure_baseline_accuracy(
     dtype: torch.dtype = torch.float32,
     load_in_4bit: bool = True,
     eval_seed: int = 123,
+    chat_template: Optional[str] = None,
 ) -> Dict[str, object]:
     task_cfg = task_cfg or TaskConfig()
+    device_map = "auto" if device != "cpu" else {"": "cpu"}
     kwargs = dict(
         dtype=dtype,
-        device_map="auto",
+        device_map=device_map,
         trust_remote_code=True,
     )
     if load_in_4bit:
@@ -342,6 +344,7 @@ def measure_baseline_accuracy(
             tokenize=False,
             add_generation_prompt=True,
             enable_thinking=False,
+            chat_template=chat_template,
         )
         inputs = tok(text, return_tensors="pt").to(device)
         with torch.no_grad():
@@ -549,12 +552,12 @@ class RewardLoggingCallback(TrainerCallback):
 @dataclass
 class TaskConfig:
     task_mode: str = "ltr"
-    ltr_min_steps: int = 3
-    ltr_max_steps: int = 6
-    word_min_ops: int = 3
-    word_max_ops: int = 5
-    val_range: int = 999
-    mul_range: int = 50
+    ltr_min_steps: int = 2
+    ltr_max_steps: int = 3
+    word_min_ops: int = 2
+    word_max_ops: int = 3
+    val_range: int = 99
+    mul_range: int = 20
 
 
 @dataclass

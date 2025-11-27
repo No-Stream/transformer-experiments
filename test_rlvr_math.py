@@ -55,7 +55,7 @@ def test_measure_baseline_uses_task_and_eval_seed(monkeypatch):
         eos_token_id = 1
         bos_token_id = 2
 
-        def apply_chat_template(self, messages, tokenize=False, add_generation_prompt=True, enable_thinking=False):
+        def apply_chat_template(self, messages, tokenize=False, add_generation_prompt=True, enable_thinking=False, **kwargs):
             return "prompt"
 
         def __call__(self, text, return_tensors="pt"):
@@ -161,3 +161,33 @@ def test_train_config_seeds_and_generation_batch_size(monkeypatch):
     args = captured["args"]
     assert args.max_steps == 123
     assert args.seed == 7
+
+
+def test_baseline_smoke_tiny_gpt2(monkeypatch):
+    import os
+
+    if not os.getenv("RLVR_SMOKE"):
+        import pytest
+
+        pytest.skip("RLVR_SMOKE not set; skipping HF smoke test")
+
+    model_id = "sshleifer/tiny-gpt2"
+    try:
+        tok = rm.AutoTokenizer.from_pretrained(model_id)
+        model = rm.AutoModelForCausalLM.from_pretrained(model_id)
+    except Exception:
+        import pytest
+
+        pytest.skip("Could not load tiny model/tokenizer")
+
+    res = rm.measure_baseline_accuracy(
+        model_id=model_id,
+        task_cfg=rm.TaskConfig(task_mode="simple", val_range=10, mul_range=3),
+        n_eval=3,
+        device="cpu",
+        dtype=rm.torch.float32,
+        load_in_4bit=False,
+        eval_seed=5,
+        chat_template="You are a calculator.\nUser: {{user}}\nAssistant:",
+    )
+    assert res["n"] == 3
