@@ -41,7 +41,8 @@ def build_messages(problem: str) -> List[Dict[str, str]]:
 
 
 def parse_answer(text: str) -> Optional[int]:
-    matches = NUM_RE.findall(text.strip())
+    cleaned = text.strip().replace(",", "").replace("_", "")
+    matches = NUM_RE.findall(cleaned)
     if not matches:
         return None
     return int(matches[-1])

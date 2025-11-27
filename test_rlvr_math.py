@@ -27,16 +27,18 @@ def test_make_task_pairs_deterministic_and_seeded():
 
 
 def test_parse_and_reward_correct_integer_handles_last_int_and_sign():
-    texts = ["answer: 3", "nums -1 then 4", "no ints here", "foo -7 bar 5"]
-    gold = [3, 4, 0, 5]
+    texts = ["answer: 3", "nums -1 then 4", "no ints here", "foo -7 bar 5", "1,234 is the final value", "leading 10_000 then -9"]
+    gold = [3, 4, 0, 5, 1234, -9]
     # parse_answer uses last integer-like token
     assert rm.parse_answer(texts[0]) == 3
     assert rm.parse_answer(texts[1]) == 4
     assert rm.parse_answer(texts[2]) is None
     assert rm.parse_answer(texts[3]) == 5
+    assert rm.parse_answer(texts[4]) == 1234
+    assert rm.parse_answer(texts[5]) == -9
 
     rewards = rm.reward_correct_integer(texts, gold)
-    assert rewards == [1.0, 1.0, 0.0, 1.0]
+    assert rewards == [1.0, 1.0, 0.0, 1.0, 1.0, 1.0]
 
 
 def test_measure_baseline_uses_task_and_eval_seed(monkeypatch):
