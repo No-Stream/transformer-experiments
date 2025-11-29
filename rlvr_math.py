@@ -302,7 +302,7 @@ def measure_baseline_accuracy(
     task_cfg = task_cfg or TaskConfig()
     device_map = "auto" if device != "cpu" else {"": "cpu"}
     kwargs = dict(
-        dtype=dtype,
+        torch_dtype=dtype,
         device_map=device_map,
         trust_remote_code=True,
     )
@@ -311,7 +311,7 @@ def measure_baseline_accuracy(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.float32,
+            bnb_4bit_compute_dtype=dtype,
         )
     model = AutoModelForCausalLM.from_pretrained(model_id, **kwargs)
     tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
@@ -564,7 +564,10 @@ class TaskConfig:
 @dataclass
 class TrainConfig:
     model_id: str = DEFAULT_MODEL_ID
-    dtype: torch.dtype = torch.bfloat16
+    # NOTE: We keep training in float32 with 4-bit disabled because prior attempts to mix bf16/4bit
+    # triggered hidden-state vs lm_head dtype mismatches during generation. Only change these if you
+    # are ready to debug dtype consistency end-to-end.
+    dtype: torch.dtype = torch.float32
     load_in_4bit: bool = False
     device: str = "cuda"
     train_seed: int = 42
@@ -627,11 +630,13 @@ def train_grpo_integer_math(cfg: Optional[TrainConfig] = None) -> GRPOTrainer:
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
     )
 
+    effective_dtype = cfg.dtype
+
     args = GRPOConfig(
         output_dir=cfg.output_dir,
         seed=cfg.train_seed,
         tf32=True,
-        bf16=(cfg.dtype == torch.bfloat16),
+        bf16=(effective_dtype == torch.bfloat16),
         per_device_train_batch_size=cfg.per_device_train_batch,
         gradient_accumulation_steps=cfg.grad_accum_steps,
         learning_rate=cfg.learning_rate,
@@ -651,14 +656,14 @@ def train_grpo_integer_math(cfg: Optional[TrainConfig] = None) -> GRPOTrainer:
         max_prompt_length=cfg.max_prompt_tok,
         max_completion_length=cfg.max_completion_tok,
         num_generations=cfg.num_generations,
-        temperature=1.0,
+        temperature=0.8,
         top_p=0.9,
         beta=0.05,
         epsilon=0.2,
-        scale_rewards="group",
+        scale_rewards="batch",  # stdev at batch level, more stable than group
         loss_type="dapo",
         model_init_kwargs=dict(
-            dtype=cfg.dtype,
+            torch_dtype=effective_dtype,
             trust_remote_code=True,
             device_map="auto",
             **(
@@ -667,7 +672,7 @@ def train_grpo_integer_math(cfg: Optional[TrainConfig] = None) -> GRPOTrainer:
                         load_in_4bit=True,
                         bnb_4bit_use_double_quant=True,
                         bnb_4bit_quant_type="nf4",
-                        bnb_4bit_compute_dtype=torch.float32,
+                        bnb_4bit_compute_dtype=effective_dtype,
                     )
                 }
                 if cfg.load_in_4bit
