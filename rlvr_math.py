@@ -577,13 +577,13 @@ class TrainConfig:
     train_samples_quick: int = 1024
     eval_samples_quick: int = 32
     train_samples_full: int = 4000
-    eval_samples_full: int = 200
-    max_steps_quick: int = 400
-    max_steps_full: int = 3000
-    max_prompt_tok: int = 128
-    max_completion_tok: int = 64
-    num_generations: int = 8
-    per_device_train_batch: int = 8
+    eval_samples_full: int = 100
+    max_steps_quick: int = 200
+    max_steps_full: int = 2500
+    max_prompt_tok: int = 256
+    max_completion_tok: int = 128
+    num_generations: int = 8  # GRPO group size
+    per_device_train_batch: int = 16
     grad_accum_steps: int = 1
     task: TaskConfig = field(default_factory=TaskConfig)
     learning_rate: float = 2e-5
