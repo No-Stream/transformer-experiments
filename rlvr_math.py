@@ -353,7 +353,8 @@ def measure_baseline_accuracy(
                 **inputs,
                 max_new_tokens=128,
                 do_sample=False,
-                temperature=0.0,
+                temperature=0.8,  # use same temp as w/ RL later
+                top_p=0.9,
                 eos_token_id=tok.eos_token_id,
                 pad_token_id=tok.pad_token_id,
             )
