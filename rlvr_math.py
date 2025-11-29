@@ -653,7 +653,7 @@ class TrainConfig:
     per_device_train_batch: int = 16
     grad_accum_steps: int = 1
     task: TaskConfig = field(default_factory=TaskConfig)
-    learning_rate: float = 2e-5
+    learning_rate: float = 5e-5
     lr_scheduler: str = "cosine"
     warmup_ratio: float = 0.1
     logging_steps: int = 5
@@ -695,6 +695,7 @@ def train_grpo_integer_math(cfg: Optional[TrainConfig] = None) -> GRPOTrainer:
         lora_dropout=0.05,
         bias="none",
         task_type="CAUSAL_LM",
+        # LoRA on attention + MLP layers
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
     )
 
