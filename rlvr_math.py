@@ -14,7 +14,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 import torch
 from datasets import Dataset
 from peft import LoraConfig
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TrainerCallback
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, PreTrainedTokenizerBase, TrainerCallback
 from trl import GRPOConfig, GRPOTrainer
 
 logger = logging.getLogger(__name__)
@@ -320,6 +320,7 @@ def measure_baseline_accuracy(
     model.config.pad_token_id = tok.pad_token_id
     model.config.eos_token_id = tok.eos_token_id
     model.config.bos_token_id = getattr(tok, "bos_token_id", None)
+    tok.padding_side = "left"
     if hasattr(model, "generation_config"):
         model.generation_config.pad_token_id = tok.pad_token_id
         model.generation_config.eos_token_id = tok.eos_token_id
@@ -373,6 +374,72 @@ def measure_baseline_accuracy(
         "accuracy": acc,
         "samples": samples,
     }
+    logger.info(json.dumps(result, indent=2))
+    return result
+
+
+def evaluate_model_accuracy(
+    model: torch.nn.Module,
+    tok: PreTrainedTokenizerBase,
+    task_cfg: Optional[TaskConfig] = None,
+    n_eval: int = 100,
+    device: str = "cuda",
+    max_new_tokens: int = 128,
+    eval_seed: int = 123,
+    chat_template: Optional[str] = None,
+) -> Dict[str, object]:
+    task_cfg = task_cfg or TaskConfig()
+    model.eval()
+    if tok.pad_token_id is None:
+        tok.pad_token_id = tok.eos_token_id
+    model.config.pad_token_id = tok.pad_token_id
+    model.config.eos_token_id = tok.eos_token_id
+    model.config.bos_token_id = getattr(tok, "bos_token_id", None)
+    if hasattr(model, "generation_config"):
+        model.generation_config.pad_token_id = tok.pad_token_id
+        model.generation_config.eos_token_id = tok.eos_token_id
+        model.generation_config.bos_token_id = getattr(tok, "bos_token_id", None)
+
+    torch.backends.cuda.matmul.allow_tf32 = True
+
+    _, eval_pairs = _make_task_pairs(
+        task_cfg=task_cfg,
+        n_train=0,
+        n_eval=n_eval,
+        train_seed=eval_seed,
+        eval_seed=eval_seed,
+    )
+
+    correct = 0
+    samples: List[Dict[str, object]] = []
+    for i, (problem, ans) in enumerate(eval_pairs):
+        messages = build_messages(problem)
+        text = tok.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False,
+            chat_template=chat_template,
+        )
+        inputs = tok(text, return_tensors="pt").to(device)
+        with torch.no_grad():
+            out = model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                temperature=0.0,
+                eos_token_id=tok.eos_token_id,
+                pad_token_id=tok.pad_token_id,
+            )
+        gen = tok.decode(out[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True)
+        pred = parse_answer(gen)
+        is_ok = pred == ans
+        correct += int(is_ok)
+        if i < 10:
+            samples.append({"problem": problem, "gold": ans, "raw": gen.strip(), "pred": pred, "ok": bool(is_ok)})
+
+    acc = correct / max(1, len(eval_pairs))
+    result = {"model": getattr(model, "name_or_path", "provided"), "task_mode": task_cfg.task_mode, "n": len(eval_pairs), "accuracy": acc, "samples": samples}
     logger.info(json.dumps(result, indent=2))
     return result
 
