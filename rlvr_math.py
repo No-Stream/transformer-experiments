@@ -653,7 +653,7 @@ class TrainConfig:
     per_device_train_batch: int = 16
     grad_accum_steps: int = 1
     task: TaskConfig = field(default_factory=TaskConfig)
-    learning_rate: float = 5e-5
+    learning_rate: float = 1e-4
     lr_scheduler: str = "cosine"
     warmup_ratio: float = 0.1
     logging_steps: int = 5
